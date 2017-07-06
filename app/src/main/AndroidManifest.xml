@@ -22,7 +22,8 @@
             android:name=".service.NotificationCollectorService"
             android:label="@string/app_name"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
-            <intent-filter>
+            <intent-filter
+                android:priority="1000">
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>

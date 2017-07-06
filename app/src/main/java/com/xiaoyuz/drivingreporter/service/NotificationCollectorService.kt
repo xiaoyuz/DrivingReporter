@@ -1,62 +1,59 @@
 package com.xiaoyuz.drivingreporter.service
 
+import android.app.Notification
+import android.app.PendingIntent
 import android.content.Intent
 import android.os.IBinder
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
-import android.speech.tts.TextToSpeech
-import com.squareup.otto.Subscribe
-import com.xiaoyuz.drivingreporter.extensions.EventDispatcher
-import com.xiaoyuz.drivingreporter.extensions.ServicePauseEvent
-import com.xiaoyuz.drivingreporter.extensions.ServiceStopEvent
+import com.xiaoyuz.drivingreporter.App
+import com.xiaoyuz.drivingreporter.R
+import com.xiaoyuz.drivingreporter.tts.TTSManager
 import org.jetbrains.anko.toast
-import java.util.*
 
 class NotificationCollectorService: NotificationListenerService() {
 
-    inner class EventHandler {
-        @Subscribe
-        fun onServicePauseEvent(event: ServicePauseEvent) {
-            mTts?.stop()
-        }
-
-        @Subscribe
-        fun onServiceStopEvent(event: ServiceStopEvent) {
-            toast("助手停止")
-            mTts?.shutdown()
-        }
-    }
-
-    private var mTts: TextToSpeech? = null
-    private val mEventHandler: EventHandler = EventHandler()
-
     override fun onBind(intent: Intent?): IBinder {
-        initListeners()
-        EventDispatcher.register(mEventHandler)
+        TTSManager.start { result ->
+            when(result) {
+                TTSManager.TTS_ALREADY_EXISTS -> toast("Already started.")
+                TTSManager.TTS_FAILED -> toast("tts failed.")
+                TTSManager.LANG_NOT_SUPPORTED -> toast("Language not supported.")
+                TTSManager.LANG_MISSING_DATA -> toast("Missing language data")
+            }
+        }
         toast("助手启动")
-        return super.onBind(intent)
-    }
+        startForegroundNotificationBar()
 
-    override fun onUnbind(intent: Intent?): Boolean {
-        EventDispatcher.unregister(mEventHandler)
-        return super.onUnbind(intent)
+        return super.onBind(intent)
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        mTts?.shutdown()
+        TTSManager.stop()
+        toast("助手停止")
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        return super.onStartCommand(intent, flags, startId)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn?.packageName == "com.tencent.mm") {
-            mTts?.speak(genSpokenString(sbn.notification?.extras?.get("android.title").toString(),
-                    sbn.notification?.extras?.get("android.text").toString()),
-                    TextToSpeech.QUEUE_ADD, null)
+            TTSManager.speak(genSpokenString(sbn.notification?.extras?.get("android.title").toString(),
+                    sbn.notification?.extras?.get("android.text").toString()))
         }
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification?) {
         super.onNotificationRemoved(sbn)
+    }
+
+    private fun startForegroundNotificationBar() {
+        val notification: Notification = Notification.Builder(App.context)
+                .setContentTitle("DriverReporter").setContentText("正在工作")
+                .setSmallIcon(R.drawable.notification_icon_background).build()
+        startForeground(1, notification)
     }
 
     private fun genSpokenString(title: String, text: String): String {
@@ -72,7 +69,11 @@ class NotificationCollectorService: NotificationListenerService() {
             val content = text.drop(head.length)
             val headSplits = head.split("]")
             if (headSplits.size == 1) {
-                result = head + "说: " + content
+                if (title == head) {
+                    result = head + "说: " + content
+                } else {
+                    result = title + " 群的 " + head + "说: " + content
+                }
             } else {
                 val author = headSplits[1]
                 if (author == title) {
@@ -83,19 +84,5 @@ class NotificationCollectorService: NotificationListenerService() {
             }
         }
         return result
-    }
-
-    private fun initListeners() {
-        mTts = TextToSpeech(this, { status ->
-            if (status == TextToSpeech.SUCCESS) {
-                val result = mTts?.setLanguage(Locale.CHINESE)
-                if (result == TextToSpeech.LANG_MISSING_DATA
-                        || result == TextToSpeech.LANG_NOT_SUPPORTED) {
-                    toast("Missing language data")
-                }
-            } else {
-                toast("tts failed.")
-            }
-        })
     }
 }
