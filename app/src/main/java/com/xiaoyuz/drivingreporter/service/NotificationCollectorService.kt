@@ -1,7 +1,6 @@
 package com.xiaoyuz.drivingreporter.service
 
 import android.app.Notification
-import android.app.PendingIntent
 import android.content.Intent
 import android.os.IBinder
 import android.service.notification.NotificationListenerService
