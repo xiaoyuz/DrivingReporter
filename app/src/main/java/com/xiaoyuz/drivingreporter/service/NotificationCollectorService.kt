@@ -56,32 +56,33 @@ class NotificationCollectorService: NotificationListenerService() {
     }
 
     private fun genSpokenString(title: String, text: String): String {
-        var result = ""
+        var result: Pair<String, String>? = null
         val splits = text.split(":")
         if (splits.size == 1) {
-//            if (text.length > 50) {
-//                result = text.dropLast(text.length - 49) + " 以下省略"
-//            }
-            result = title + "说: " + text
+            result = title to text
         } else {
             val head = splits[0]
             val content = text.drop(head.length)
             val headSplits = head.split("]")
             if (headSplits.size == 1) {
                 if (title == head) {
-                    result = head + "说: " + content
+                    result = head to content
                 } else {
-                    result = title + " 群的 " + head + "说: " + content
+                    result = title + " 群的 " + head to content
                 }
             } else {
                 val author = headSplits[1]
                 if (author == title) {
-                    result = author + "说: " + content
+                    result = author to content
                 } else {
-                    result = title + " 群的 " + author + "说: " + content
+                    result = title + " 群的 " + author to content
                 }
             }
         }
-        return result
+        var content = result.second
+        if (content.length > 30) {
+            content = content.dropLast(text.length - 29) + " 以下省略"
+        }
+        return result.first + "说: " + content
     }
 }
